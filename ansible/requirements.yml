@@ -1,0 +1,88 @@
+---
+# Ansible Galaxy Requirements
+# External roles and collections needed for this project
+
+# Collections
+collections:
+  - name: community.docker
+    version: ">=3.0.0"
+  - name: ansible.posix
+    version: ">=1.4.0"
+  - name: community.general
+    version: ">=5.0.0"
+  - name: community.kubernetes
+    version: ">=2.0.0"
+  - name: kubernetes.core
+    version: ">=2.3.0"
+  - name: cloud.common
+    version: ">=2.0.0"
+
+# Roles
+roles:
+  # Docker roles
+  - name: geerlingguy.docker
+    version: ">=6.0.0"
+  
+  # Jenkins roles
+  - name: geerlingguy.jenkins
+    version: ">=1.0.0"
+  
+  # System roles
+  - name: geerlingguy.security
+    version: ">=1.0.0"
+  - name: geerlingguy.firewall
+    version: ">=1.0.0"
+  - name: geerlingguy.ntp
+    version: ">=1.0.0"
+  
+  # Monitoring roles
+  - name: cloudalchemy.prometheus
+    version: ">=1.0.0"
+  - name: cloudalchemy.grafana
+    version: ">=1.0.0"
+  
+  # Database roles
+  - name: geerlingguy.postgresql
+    version: ">=1.0.0"
+  - name: geerlingguy.redis
+    version: ">=1.0.0"
+  
+  # Load balancer roles
+  - name: nginxinc.nginx
+    version: ">=0.4.0"
+  - name: geerlingguy.nginx
+    version: ">=2.0.0"
+  
+  # SSL/TLS roles
+  - name: geerlingguy.certbot
+    version: ">=1.0.0"
+  
+  # Backup roles
+  - name: geerlingguy.backup
+    version: ">=1.0.0"
+  
+  # Logging roles
+  - name: geerlingguy.logrotate
+    version: ">=1.0.0"
+  
+  # Security roles
+  - name: geerlingguy.security
+    version: ">=1.0.0"
+  - name: geerlingguy.ufw
+    version: ">=1.0.0"
+  
+  # Development tools
+  - name: geerlingguy.git
+    version: ">=1.0.0"
+  - name: geerlingguy.pip
+    version: ">=1.0.0"
+  - name: geerlingguy.nodejs
+    version: ">=1.0.0"
+  
+  # Cloud provider roles
+  - name: geerlingguy.aws
+    version: ">=1.0.0"
+  - name: geerlingguy.azure
+    version: ">=1.0.0"
+  - name: geerlingguy.gcp
+    version: ">=1.0.0" 

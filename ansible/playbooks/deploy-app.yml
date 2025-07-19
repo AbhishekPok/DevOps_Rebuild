@@ -1,0 +1,175 @@
+---
+# Application Deployment Playbook
+# This playbook handles the deployment of containerized applications
+
+- name: Deploy Application
+  hosts: app_servers
+  gather_facts: yes
+  become: yes
+  
+  vars_files:
+    - ../vars/main.yml
+    - ../vars/secrets.yml
+  
+  pre_tasks:
+    - name: Ensure Docker is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+  tasks:
+    - name: Pull latest application image
+      docker_image:
+        name: "{{ container_registry }}/{{ container_image_name }}:{{ container_image_tag }}"
+        source: pull
+        force_source: yes
+      when: container_registry != "docker.io"
+
+    - name: Stop existing application container
+      docker_container:
+        name: "{{ app_name }}"
+        state: absent
+      ignore_errors: yes
+
+    - name: Remove old application container
+      docker_container:
+        name: "{{ app_name }}"
+        state: absent
+        force_kill: yes
+      ignore_errors: yes
+
+    - name: Create application data directory
+      file:
+        path: "{{ app_data_path }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+
+    - name: Create application logs directory
+      file:
+        path: "{{ app_logs_path }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+
+    - name: Create application config directory
+      file:
+        path: "{{ app_config_path }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+
+    - name: Copy application configuration
+      template:
+        src: "../templates/app-config.yml.j2"
+        dest: "{{ app_config_path }}/config.yml"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0644'
+      when: app_config_template is defined
+
+    - name: Create Docker network if not exists
+      docker_network:
+        name: "{{ docker_network_name }}"
+        state: present
+        driver: "{{ docker_network_driver }}"
+        subnet: "{{ docker_network_subnet }}"
+        gateway: "{{ docker_network_gateway }}"
+
+    - name: Deploy application container
+      docker_container:
+        name: "{{ app_name }}"
+        image: "{{ container_registry }}/{{ container_image_name }}:{{ container_image_tag }}"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ app_port }}:{{ app_port }}"
+        networks:
+          - name: "{{ docker_network_name }}"
+        volumes:
+          - "{{ app_data_path }}:/app/data"
+          - "{{ app_logs_path }}:/app/logs"
+          - "{{ app_config_path }}:/app/config"
+        env:
+          APP_ENV: "{{ app_environment }}"
+          APP_DEBUG: "{{ app_debug }}"
+          APP_LOG_LEVEL: "{{ app_log_level }}"
+          DATABASE_HOST: "{{ database_host }}"
+          DATABASE_PORT: "{{ database_port }}"
+          DATABASE_NAME: "{{ database_name }}"
+          DATABASE_USER: "{{ database_user }}"
+          DATABASE_PASSWORD: "{{ database_password }}"
+          REDIS_HOST: "{{ redis_host }}"
+          REDIS_PORT: "{{ redis_port }}"
+          REDIS_PASSWORD: "{{ redis_password }}"
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:{{ app_port }}{{ app_health_check_path }}"]
+          interval: "{{ docker_health_check_interval }}"
+          timeout: "{{ docker_health_check_timeout }}"
+          retries: "{{ docker_health_check_retries }}"
+          start_period: "30s"
+        labels:
+          app: "{{ app_name }}"
+          version: "{{ app_version }}"
+          environment: "{{ app_environment }}"
+
+    - name: Wait for application to be ready
+      wait_for:
+        host: "{{ ansible_default_ipv4.address }}"
+        port: "{{ app_port }}"
+        delay: 10
+        timeout: 300
+
+    - name: Verify application health
+      uri:
+        url: "http://{{ ansible_default_ipv4.address }}:{{ app_port }}{{ app_health_check_path }}"
+        method: GET
+        status_code: 200
+      register: health_check
+      retries: 3
+      delay: 10
+      until: health_check.status == 200
+
+    - name: Configure load balancer (if enabled)
+      include_tasks: ../roles/load-balancer/tasks/main.yml
+      when: load_balancer_enabled and inventory_hostname in groups['load_balancers']
+
+    - name: Setup SSL/TLS (if enabled)
+      include_tasks: ../roles/ssl/tasks/main.yml
+      when: ssl_enabled
+
+    - name: Configure monitoring
+      include_tasks: ../roles/monitoring/tasks/main.yml
+      when: monitoring_enabled
+
+    - name: Setup application backup
+      include_tasks: ../roles/backup/tasks/main.yml
+      when: app_backup_enabled
+
+    - name: Display deployment status
+      debug:
+        msg: |
+          Application deployment completed successfully!
+          
+          Application: {{ app_name }}
+          Version: {{ app_version }}
+          Environment: {{ app_environment }}
+          URL: http://{{ ansible_default_ipv4.address }}:{{ app_port }}
+          Health Check: {{ health_check.status }}
+          
+          Container Status: {{ container_info.containers[0].State.Status if container_info is defined else 'Unknown' }}
+
+  handlers:
+    - name: Restart application
+      docker_container:
+        name: "{{ app_name }}"
+        state: started
+        restart_policy: unless-stopped
+
+    - name: Reload load balancer
+      include_tasks: ../roles/load-balancer/tasks/reload.yml
+      when: load_balancer_enabled 

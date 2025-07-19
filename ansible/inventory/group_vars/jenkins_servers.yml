@@ -1,0 +1,78 @@
+# Jenkins server specific variables
+
+# Jenkins configuration
+jenkins_version: "2.414.3"
+jenkins_home: "/var/lib/jenkins"
+jenkins_port: 8080
+jenkins_admin_user: "admin"
+jenkins_admin_password: "{{ vault_jenkins_admin_password }}"
+
+# Jenkins plugins
+jenkins_plugins:
+  - "pipeline"
+  - "git"
+  - "docker-plugin"
+  - "docker-workflow"
+  - "kubernetes"
+  - "blueocean"
+  - "sonarqube-scanner"
+  - "junit"
+  - "htmlpublisher"
+  - "email-ext"
+  - "slack"
+  - "ansible"
+  - "credentials"
+  - "ssh-credentials"
+  - "plain-credentials"
+  - "workflow-aggregator"
+  - "matrix-project"
+  - "parameterized-trigger"
+  - "build-timeout"
+  - "timestamper"
+
+# Jenkins security
+jenkins_security_enabled: yes
+jenkins_csrf_protection: yes
+jenkins_script_approval: yes
+
+# Jenkins backup
+jenkins_backup_enabled: yes
+jenkins_backup_schedule: "0 1 * * *"
+jenkins_backup_path: "/var/backups/jenkins"
+
+# Jenkins agents
+jenkins_agents_enabled: yes
+jenkins_agent_port: 50000
+jenkins_agent_credentials: "{{ vault_jenkins_agent_credentials }}"
+
+# Docker integration
+jenkins_docker_enabled: yes
+jenkins_docker_socket: "/var/run/docker.sock"
+jenkins_docker_group: "docker"
+
+# Git integration
+jenkins_git_enabled: yes
+jenkins_git_credentials: "{{ vault_jenkins_git_credentials }}"
+
+# Notification settings
+jenkins_slack_enabled: yes
+jenkins_slack_webhook: "{{ vault_jenkins_slack_webhook }}"
+jenkins_email_enabled: yes
+jenkins_email_smtp_host: "{{ vault_jenkins_email_smtp_host }}"
+jenkins_email_smtp_port: 587
+jenkins_email_username: "{{ vault_jenkins_email_username }}"
+jenkins_email_password: "{{ vault_jenkins_email_password }}"
+
+# Pipeline configuration
+jenkins_pipeline_library: "https://github.com/your-org/jenkins-shared-library.git"
+jenkins_pipeline_credentials: "{{ vault_jenkins_pipeline_credentials }}"
+
+# SonarQube integration
+jenkins_sonarqube_enabled: yes
+jenkins_sonarqube_url: "{{ vault_jenkins_sonarqube_url }}"
+jenkins_sonarqube_token: "{{ vault_jenkins_sonarqube_token }}"
+
+# Kubernetes integration
+jenkins_kubernetes_enabled: yes
+jenkins_kubernetes_url: "{{ vault_jenkins_kubernetes_url }}"
+jenkins_kubernetes_credentials: "{{ vault_jenkins_kubernetes_credentials }}" 

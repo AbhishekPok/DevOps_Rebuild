@@ -1,0 +1,37 @@
+# Global variables for all hosts
+
+# System configuration
+system_timezone: UTC
+system_locale: en_US.UTF-8
+
+# Package management
+package_manager_update_cache: yes
+package_manager_autoremove: yes
+
+# Security settings
+security_ssh_port: 22
+security_firewall_enabled: yes
+security_ufw_enabled: yes
+
+# Monitoring
+monitoring_enabled: yes
+prometheus_enabled: yes
+grafana_enabled: yes
+
+# Logging
+log_retention_days: 30
+log_rotation_enabled: yes
+
+# Backup settings
+backup_enabled: yes
+backup_retention_days: 7
+
+# Network settings
+dns_servers:
+  - 8.8.8.8
+  - 8.8.4.4
+
+# Time synchronization
+ntp_enabled: yes
+ntp_servers:
+  - pool.ntp.org 

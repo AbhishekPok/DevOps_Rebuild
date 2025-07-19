@@ -1,0 +1,18 @@
+---
+# Jenkins Role - Main Tasks
+# This role handles Jenkins installation and configuration
+
+- name: Include Jenkins installation tasks
+  include_tasks: install.yml
+
+- name: Include Jenkins configuration tasks
+  include_tasks: configure.yml
+
+- name: Include Jenkins security tasks
+  include_tasks: security.yml
+
+- name: Include Jenkins plugins tasks
+  include_tasks: plugins.yml
+
+- name: Include Jenkins jobs tasks
+  include_tasks: jobs.yml 

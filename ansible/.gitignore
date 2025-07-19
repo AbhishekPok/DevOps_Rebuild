@@ -1,0 +1,120 @@
+# Ansible specific
+*.retry
+*.pyc
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Vault files
+*.vault
+vars/secrets.yml
+
+# SSH keys
+*.pem
+*.key
+id_rsa*
+*.pub
+
+# Logs
+*.log
+logs/
+ansible.log
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Backup files
+*.bak
+*.backup
+
+# Docker
+.dockerignore
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Node.js (if using Node.js applications)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+target/
+build/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Ansible facts cache
+/tmp/ansible_facts/
+
+# Jenkins workspace
+workspace/
+
+# Docker volumes
+docker-volumes/
+
+# Application data
+app-data/
+app-logs/
+
+# SSL certificates
+*.crt
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Database dumps
+*.sql
+*.dump
+
+# Backup files
+backups/
+*.tar.gz
+*.zip
+
+# Monitoring data
+prometheus-data/
+grafana-data/
+
+# Terraform (if using)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl 

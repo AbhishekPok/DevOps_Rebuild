@@ -1,0 +1,73 @@
+# Docker host specific variables
+
+# Docker configuration
+docker_version: "24.0.7"
+docker_compose_version: "2.20.0"
+docker_swarm_enabled: no
+docker_swarm_manager: no
+
+# Docker daemon settings
+docker_daemon_config:
+  log-driver: "json-file"
+  log-opts:
+    max-size: "10m"
+    max-file: "3"
+  storage-driver: "overlay2"
+  storage-opts:
+    - "overlay2.override_kernel_check=true"
+  insecure-registries: []
+  registry-mirrors: []
+
+# Docker network configuration
+docker_network_driver: "bridge"
+docker_network_subnet: "172.20.0.0/16"
+docker_network_gateway: "172.20.0.1"
+
+# Docker storage
+docker_storage_path: "/var/lib/docker"
+docker_storage_driver: "overlay2"
+
+# Docker security
+docker_security_enabled: yes
+docker_apparmor_enabled: yes
+docker_selinux_enabled: no
+docker_user_namespace_enabled: no
+
+# Docker registry configuration
+docker_registry_enabled: no
+docker_registry_host: "registry.example.com"
+docker_registry_port: 5000
+docker_registry_ssl: yes
+
+# Container resource limits
+docker_default_memory_limit: "512m"
+docker_default_cpu_limit: "0.5"
+docker_default_pids_limit: 100
+
+# Docker monitoring
+docker_monitoring_enabled: yes
+docker_prometheus_enabled: yes
+docker_grafana_enabled: yes
+
+# Docker backup
+docker_backup_enabled: yes
+docker_backup_schedule: "0 3 * * *"
+docker_backup_path: "/var/backups/docker"
+
+# Docker cleanup
+docker_cleanup_enabled: yes
+docker_cleanup_schedule: "0 4 * * 0"
+docker_cleanup_keep_images: 10
+docker_cleanup_keep_containers: 5
+
+# Docker logging
+docker_logging_enabled: yes
+docker_logging_driver: "json-file"
+docker_logging_max_size: "10m"
+docker_logging_max_files: 3
+
+# Docker health checks
+docker_health_check_enabled: yes
+docker_health_check_interval: "30s"
+docker_health_check_timeout: "10s"
+docker_health_check_retries: 3 

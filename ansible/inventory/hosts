@@ -1,0 +1,64 @@
+# Ansible Inventory File
+# Define your target servers and groups
+
+[all:vars]
+# Global variables for all hosts
+ansible_python_interpreter = /usr/bin/python3
+ansible_user = ansible
+ansible_ssh_private_key_file = ~/.ssh/id_rsa
+
+# Application servers
+[app_servers]
+# Add your application servers here
+# app-server-1 ansible_host=192.168.1.10
+# app-server-2 ansible_host=192.168.1.11
+
+# Jenkins CI/CD server
+[jenkins_servers]
+# Add your Jenkins server here
+# jenkins-server ansible_host=192.168.1.20
+
+# Docker hosts
+[docker_hosts]
+# Add your Docker hosts here
+# docker-host-1 ansible_host=192.168.1.30
+# docker-host-2 ansible_host=192.168.1.31
+
+# Monitoring servers
+[monitoring_servers]
+# Add your monitoring servers here
+# monitoring-server ansible_host=192.168.1.40
+
+# Database servers
+[database_servers]
+# Add your database servers here
+# db-server-1 ansible_host=192.168.1.50
+
+# Load balancer servers
+[load_balancers]
+# Add your load balancer servers here
+# lb-server-1 ansible_host=192.168.1.60
+
+# Development servers
+[dev_servers]
+# Add your development servers here
+# dev-server-1 ansible_host=192.168.1.70
+
+# Production servers
+[prod_servers]
+# Add your production servers here
+# prod-server-1 ansible_host=192.168.1.80
+
+# Children groups
+[webservers:children]
+app_servers
+load_balancers
+
+[ci_cd:children]
+jenkins_servers
+docker_hosts
+
+[infrastructure:children]
+monitoring_servers
+database_servers
+load_balancers 

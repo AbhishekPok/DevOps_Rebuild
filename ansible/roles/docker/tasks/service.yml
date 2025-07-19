@@ -1,0 +1,60 @@
+---
+# Docker Service Management Tasks
+
+- name: Start and enable Docker service
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Wait for Docker daemon to be ready
+  wait_for:
+    path: /var/run/docker.sock
+    timeout: 60
+
+- name: Verify Docker installation
+  command: docker --version
+  register: docker_version
+  changed_when: false
+
+- name: Display Docker version
+  debug:
+    msg: "Docker version: {{ docker_version.stdout }}"
+
+- name: Verify Docker Compose installation
+  command: docker-compose --version
+  register: docker_compose_version
+  changed_when: false
+
+- name: Display Docker Compose version
+  debug:
+    msg: "Docker Compose version: {{ docker_compose_version.stdout }}"
+
+- name: Test Docker functionality
+  docker_container:
+    name: hello-world
+    image: hello-world
+    state: started
+    auto_remove: yes
+  register: docker_test
+
+- name: Display Docker test result
+  debug:
+    msg: "Docker test completed: {{ docker_test.status.Running if docker_test.status else 'Failed' }}"
+
+- name: Configure Docker Swarm (if enabled)
+  docker_swarm:
+    state: present
+    advertise_addr: "{{ ansible_default_ipv4.address }}"
+    listen_addr: "0.0.0.0:2377"
+  when: docker_swarm_enabled
+
+- name: Join Docker Swarm as worker (if not manager)
+  docker_swarm:
+    state: present
+    join_token: "{{ docker_swarm_worker_token }}"
+    remote_addrs: "{{ docker_swarm_manager_addr }}"
+    listen_addr: "0.0.0.0:2377"
+    advertise_addr: "{{ ansible_default_ipv4.address }}"
+  when: docker_swarm_enabled and not docker_swarm_manager and docker_swarm_worker_token is defined 

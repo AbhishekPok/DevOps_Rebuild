@@ -1,0 +1,88 @@
+---
+# Docker Configuration Tasks
+
+- name: Create Docker daemon configuration directory
+  file:
+    path: /etc/docker
+    state: directory
+    mode: '0755'
+
+- name: Configure Docker daemon
+  template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+  notify: Restart Docker
+
+- name: Create Docker storage directory
+  file:
+    path: "{{ docker_storage_path }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Configure Docker logging
+  template:
+    src: logrotate-docker.j2
+    dest: /etc/logrotate.d/docker
+    mode: '0644'
+  when: docker_logging_enabled
+
+- name: Create Docker cleanup script
+  template:
+    src: docker-cleanup.sh.j2
+    dest: /usr/local/bin/docker-cleanup.sh
+    mode: '0755'
+  when: docker_cleanup_enabled
+
+- name: Configure Docker cleanup cron job
+  cron:
+    name: "Docker Cleanup"
+    hour: "4"
+    minute: "0"
+    weekday: "0"
+    job: "/usr/local/bin/docker-cleanup.sh"
+    user: root
+  when: docker_cleanup_enabled
+
+- name: Configure Docker backup
+  template:
+    src: docker-backup.sh.j2
+    dest: /usr/local/bin/docker-backup.sh
+    mode: '0755'
+  when: docker_backup_enabled
+
+- name: Configure Docker backup cron job
+  cron:
+    name: "Docker Backup"
+    hour: "3"
+    minute: "0"
+    job: "/usr/local/bin/docker-backup.sh"
+    user: root
+  when: docker_backup_enabled
+
+- name: Create Docker networks
+  docker_network:
+    name: "{{ item.name }}"
+    state: present
+    driver: "{{ item.driver | default('bridge') }}"
+    subnet: "{{ item.subnet | default(omit) }}"
+    gateway: "{{ item.gateway | default(omit) }}"
+  loop: "{{ docker_networks | default([]) }}"
+  when: docker_networks is defined
+
+- name: Configure Docker security settings
+  template:
+    src: docker-security.conf.j2
+    dest: /etc/systemd/system/docker.service.d/security.conf
+    mode: '0644'
+  when: docker_security_enabled
+  notify: Restart Docker
+
+- name: Configure Docker monitoring
+  template:
+    src: docker-monitoring.yml.j2
+    dest: /etc/docker/monitoring.yml
+    mode: '0644'
+  when: docker_monitoring_enabled 

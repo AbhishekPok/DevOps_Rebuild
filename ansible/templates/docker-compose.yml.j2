@@ -1,0 +1,127 @@
+version: '3.8'
+
+services:
+  {{ app_name }}:
+    image: {{ container_registry }}/{{ container_image_name }}:{{ container_image_tag }}
+    container_name: {{ app_name }}
+    restart: unless-stopped
+    ports:
+      - "{{ app_port }}:{{ app_port }}"
+    environment:
+      - APP_ENV={{ app_environment }}
+      - APP_DEBUG={{ app_debug }}
+      - APP_LOG_LEVEL={{ app_log_level }}
+      - DATABASE_HOST={{ database_host }}
+      - DATABASE_PORT={{ database_port }}
+      - DATABASE_NAME={{ database_name }}
+      - DATABASE_USER={{ database_user }}
+      - DATABASE_PASSWORD={{ database_password }}
+      - REDIS_HOST={{ redis_host }}
+      - REDIS_PORT={{ redis_port }}
+      - REDIS_PASSWORD={{ redis_password }}
+    volumes:
+      - {{ app_data_path }}:/app/data
+      - {{ app_logs_path }}:/app/logs
+      - {{ app_config_path }}:/app/config
+    networks:
+      - {{ docker_network_name }}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:{{ app_port }}{{ app_health_check_path }}"]
+      interval: {{ docker_health_check_interval }}
+      timeout: {{ docker_health_check_timeout }}
+      retries: {{ docker_health_check_retries }}
+      start_period: 30s
+    labels:
+      - "app={{ app_name }}"
+      - "version={{ app_version }}"
+      - "environment={{ app_environment }}"
+    deploy:
+      resources:
+        limits:
+          memory: {{ docker_default_memory_limit }}
+          cpus: '{{ docker_default_cpu_limit }}'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Database service (if needed)
+  {% if database_service_enabled %}
+  database:
+    image: postgres:15-alpine
+    container_name: {{ app_name }}-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB={{ database_name }}
+      - POSTGRES_USER={{ database_user }}
+      - POSTGRES_PASSWORD={{ database_password }}
+    volumes:
+      - {{ app_data_path }}/database:/var/lib/postgresql/data
+    networks:
+      - {{ docker_network_name }}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ database_user }} -d {{ database_name }}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+  {% endif %}
+
+  # Redis service (if needed)
+  {% if redis_service_enabled %}
+  redis:
+    image: redis:7-alpine
+    container_name: {{ app_name }}-redis
+    restart: unless-stopped
+    command: redis-server --requirepass {{ redis_password }}
+    volumes:
+      - {{ app_data_path }}/redis:/data
+    networks:
+      - {{ docker_network_name }}
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+  {% endif %}
+
+  # Nginx reverse proxy (if needed)
+  {% if nginx_enabled %}
+  nginx:
+    image: nginx:alpine
+    container_name: {{ app_name }}-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - {{ ssl_cert_path }}:/etc/nginx/ssl/cert.crt:ro
+      - {{ ssl_key_path }}:/etc/nginx/ssl/key.key:ro
+    networks:
+      - {{ docker_network_name }}
+    depends_on:
+      - {{ app_name }}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+  {% endif %}
+
+networks:
+  {{ docker_network_name }}:
+    driver: {{ docker_network_driver }}
+    ipam:
+      config:
+        - subnet: {{ docker_network_subnet }}
+          gateway: {{ docker_network_gateway }}
+
+volumes:
+  app_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_config:
+    driver: local 

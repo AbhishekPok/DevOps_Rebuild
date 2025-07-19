@@ -1,0 +1,81 @@
+---
+# Jenkins Installation Tasks
+
+- name: Install Java
+  package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - openjdk-11-jdk
+    - curl
+    - wget
+    - unzip
+  when: ansible_os_family == "Debian"
+
+- name: Install Java (RedHat)
+  package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - java-11-openjdk-devel
+    - curl
+    - wget
+    - unzip
+  when: ansible_os_family == "RedHat"
+
+- name: Add Jenkins repository key
+  apt_key:
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Add Jenkins repository
+  apt_repository:
+    repo: "deb https://pkg.jenkins.io/debian-stable binary/"
+    state: present
+    filename: jenkins
+  when: ansible_os_family == "Debian"
+
+- name: Install Jenkins
+  package:
+    name: jenkins
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Install Jenkins (RedHat)
+  package:
+    name: jenkins
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Create Jenkins home directory
+  file:
+    path: "{{ jenkins_home }}"
+    state: directory
+    mode: '0755'
+    owner: jenkins
+    group: jenkins
+
+- name: Start and enable Jenkins service
+  systemd:
+    name: jenkins
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Wait for Jenkins to start
+  wait_for:
+    host: "{{ ansible_default_ipv4.address }}"
+    port: "{{ jenkins_port }}"
+    delay: 10
+    timeout: 300
+
+- name: Get Jenkins initial admin password
+  shell: cat /var/lib/jenkins/secrets/initialAdminPassword
+  register: jenkins_initial_password
+  changed_when: false
+
+- name: Display Jenkins initial password
+  debug:
+    msg: "Jenkins initial admin password: {{ jenkins_initial_password.stdout }}" 

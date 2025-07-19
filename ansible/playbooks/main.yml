@@ -1,0 +1,74 @@
+---
+# Main Ansible Playbook
+# This playbook orchestrates the entire DevOps automation process
+
+- name: Main DevOps Automation Playbook
+  hosts: all
+  gather_facts: yes
+  become: yes
+  
+  pre_tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+      
+    - name: Update package cache (RedHat)
+      yum:
+        update_cache: yes
+      when: ansible_os_family == "RedHat"
+
+  tasks:
+    - name: Include system preparation tasks
+      include_tasks: ../roles/common/tasks/main.yml
+      when: inventory_hostname in groups['all']
+
+- name: Setup Docker Infrastructure
+  hosts: docker_hosts
+  become: yes
+  roles:
+    - docker
+
+- name: Setup Jenkins CI/CD
+  hosts: jenkins_servers
+  become: yes
+  roles:
+    - jenkins
+
+- name: Containerize Application
+  hosts: app_servers
+  become: yes
+  roles:
+    - app-container
+
+- name: Setup Monitoring
+  hosts: monitoring_servers
+  become: yes
+  roles:
+    - monitoring
+
+- name: Deploy Application
+  hosts: app_servers
+  become: yes
+  roles:
+    - app-deploy
+
+- name: Verify Deployment
+  hosts: app_servers
+  become: no
+  tasks:
+    - name: Check application health
+      uri:
+        url: "http://{{ ansible_default_ipv4.address }}:{{ app_port }}{{ app_health_check_path }}"
+        method: GET
+        status_code: 200
+      register: health_check
+      retries: 3
+      delay: 10
+      until: health_check.status == 200
+
+    - name: Display deployment status
+      debug:
+        msg: "Application deployed successfully on {{ inventory_hostname }}"
+      when: health_check.status == 200 

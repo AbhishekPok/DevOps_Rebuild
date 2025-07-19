@@ -1,0 +1,144 @@
+---
+# Application Containerization Playbook
+# This playbook handles the containerization of applications
+
+- name: Containerize Application
+  hosts: app_servers
+  gather_facts: yes
+  become: yes
+  
+  vars_files:
+    - ../vars/main.yml
+    - ../vars/secrets.yml
+  
+  pre_tasks:
+    - name: Ensure Docker is installed
+      include_role:
+        name: docker
+        tasks_from: install
+      when: docker_installed is not defined or not docker_installed
+
+  tasks:
+    - name: Create application directory
+      file:
+        path: "{{ app_deploy_path }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+
+    - name: Copy application source code
+      copy:
+        src: "{{ app_source_path }}"
+        dest: "{{ app_deploy_path }}/"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0644'
+      when: app_source_path is defined
+
+    - name: Create Dockerfile
+      template:
+        src: ../templates/Dockerfile.j2
+        dest: "{{ app_deploy_path }}/Dockerfile"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0644'
+
+    - name: Create docker-compose.yml
+      template:
+        src: ../templates/docker-compose.yml.j2
+        dest: "{{ app_deploy_path }}/docker-compose.yml"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0644'
+
+    - name: Create .dockerignore file
+      template:
+        src: ../templates/.dockerignore.j2
+        dest: "{{ app_deploy_path }}/.dockerignore"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0644'
+
+    - name: Build Docker image
+      docker_image:
+        name: "{{ container_image_name }}:{{ container_image_tag }}"
+        path: "{{ app_deploy_path }}"
+        buildargs:
+          APP_NAME: "{{ app_name }}"
+          APP_VERSION: "{{ app_version }}"
+        state: present
+      register: docker_build_result
+
+    - name: Tag Docker image for registry
+      docker_image:
+        name: "{{ container_image_name }}:{{ container_image_tag }}"
+        repository: "{{ container_registry }}/{{ container_image_name }}"
+        tag: "{{ container_image_tag }}"
+        state: present
+      when: container_registry != "docker.io"
+
+    - name: Push Docker image to registry
+      docker_image:
+        name: "{{ container_registry }}/{{ container_image_name }}:{{ container_image_tag }}"
+        push: yes
+        state: present
+      when: container_registry != "docker.io"
+      register: docker_push_result
+
+    - name: Create Docker network
+      docker_network:
+        name: "{{ docker_network_name }}"
+        state: present
+        driver: "{{ docker_network_driver }}"
+        subnet: "{{ docker_network_subnet }}"
+        gateway: "{{ docker_network_gateway }}"
+
+    - name: Start application container
+      docker_container:
+        name: "{{ app_name }}"
+        image: "{{ container_image_name }}:{{ container_image_tag }}"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ app_port }}:{{ app_port }}"
+        networks:
+          - name: "{{ docker_network_name }}"
+        env:
+          APP_ENV: "{{ app_environment }}"
+          APP_DEBUG: "{{ app_debug }}"
+          APP_LOG_LEVEL: "{{ app_log_level }}"
+          DATABASE_HOST: "{{ database_host }}"
+          DATABASE_PORT: "{{ database_port }}"
+          DATABASE_NAME: "{{ database_name }}"
+          DATABASE_USER: "{{ database_user }}"
+          DATABASE_PASSWORD: "{{ database_password }}"
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:{{ app_port }}{{ app_health_check_path }}"]
+          interval: "{{ docker_health_check_interval }}"
+          timeout: "{{ docker_health_check_timeout }}"
+          retries: "{{ docker_health_check_retries }}"
+          start_period: "30s"
+
+    - name: Wait for application to be ready
+      wait_for:
+        host: "{{ ansible_default_ipv4.address }}"
+        port: "{{ app_port }}"
+        delay: 10
+        timeout: 300
+
+    - name: Verify container is running
+      docker_container_info:
+        name: "{{ app_name }}"
+      register: container_info
+
+    - name: Display container status
+      debug:
+        msg: "Container {{ app_name }} is {{ container_info.containers[0].State.Status }}"
+
+  handlers:
+    - name: Restart application
+      docker_container:
+        name: "{{ app_name }}"
+        state: started
+        restart_policy: unless-stopped 

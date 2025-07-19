@@ -1,0 +1,244 @@
+---
+# Jenkins CI/CD Setup Playbook
+# This playbook sets up Jenkins with all necessary plugins and configurations
+
+- name: Setup Jenkins CI/CD
+  hosts: jenkins_servers
+  gather_facts: yes
+  become: yes
+  
+  vars_files:
+    - ../vars/main.yml
+    - ../vars/secrets.yml
+  
+  pre_tasks:
+    - name: Ensure Java is installed
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - openjdk-11-jdk
+        - curl
+        - wget
+        - unzip
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure Java is installed (RedHat)
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - java-11-openjdk-devel
+        - curl
+        - wget
+        - unzip
+      when: ansible_os_family == "RedHat"
+
+  tasks:
+    - name: Add Jenkins repository key
+      apt_key:
+        url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Add Jenkins repository
+      apt_repository:
+        repo: "deb https://pkg.jenkins.io/debian-stable binary/"
+        state: present
+        filename: jenkins
+      when: ansible_os_family == "Debian"
+
+    - name: Install Jenkins
+      package:
+        name: jenkins
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install Jenkins (RedHat)
+      package:
+        name: jenkins
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Start and enable Jenkins service
+      systemd:
+        name: jenkins
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    - name: Wait for Jenkins to start
+      wait_for:
+        host: "{{ ansible_default_ipv4.address }}"
+        port: "{{ jenkins_port }}"
+        delay: 10
+        timeout: 300
+
+    - name: Get Jenkins initial admin password
+      shell: cat /var/lib/jenkins/secrets/initialAdminPassword
+      register: jenkins_initial_password
+      changed_when: false
+
+    - name: Display Jenkins initial password
+      debug:
+        msg: "Jenkins initial admin password: {{ jenkins_initial_password.stdout }}"
+
+    - name: Create Jenkins admin user
+      jenkins_user:
+        name: "{{ jenkins_admin_user }}"
+        password: "{{ jenkins_admin_password }}"
+        full_name: "Jenkins Administrator"
+        email: "admin@example.com"
+        state: present
+        url_username: "{{ jenkins_admin_user }}"
+        url_password: "{{ jenkins_admin_password }}"
+        url: "http://{{ ansible_default_ipv4.address }}:{{ jenkins_port }}"
+
+    - name: Install Jenkins plugins
+      jenkins_plugin:
+        name: "{{ item }}"
+        state: present
+        url_username: "{{ jenkins_admin_user }}"
+        url_password: "{{ jenkins_admin_password }}"
+        url: "http://{{ ansible_default_ipv4.address }}:{{ jenkins_port }}"
+      loop: "{{ jenkins_plugins }}"
+      notify: Restart Jenkins
+
+    - name: Configure Jenkins security
+      jenkins_script:
+        script: |
+          import jenkins.model.*
+          import hudson.security.*
+          
+          def instance = Jenkins.getInstance()
+          
+          if (instance.getSecurityRealm() == null) {
+            def hudsonRealm = new HudsonPrivateSecurityRealm(false)
+            instance.setSecurityRealm(hudsonRealm)
+          }
+          
+          if (instance.getAuthorizationStrategy() == null) {
+            def strategy = new GlobalMatrixAuthorizationStrategy()
+            strategy.add(Jenkins.ADMINISTER, "{{ jenkins_admin_user }}")
+            instance.setAuthorizationStrategy(strategy)
+          }
+          
+          instance.save()
+        url_username: "{{ jenkins_admin_user }}"
+        url_password: "{{ jenkins_admin_password }}"
+        url: "http://{{ ansible_default_ipv4.address }}:{{ jenkins_port }}"
+      when: jenkins_security_enabled
+
+    - name: Configure Jenkins system settings
+      jenkins_script:
+        script: |
+          import jenkins.model.*
+          import hudson.tasks.*
+          import hudson.util.*
+          
+          def instance = Jenkins.getInstance()
+          
+          // Configure global settings
+          instance.setNumExecutors(2)
+          instance.setMode(hudson.model.Node.Mode.NORMAL)
+          instance.setScmCheckoutRetryCount(3)
+          
+          // Configure email settings
+          def desc = instance.getDescriptor("hudson.plugins.emailext.ExtendedEmailPublisher")
+          desc.setSmtpHost("{{ jenkins_email_smtp_host }}")
+          desc.setSmtpPort("{{ jenkins_email_smtp_port }}")
+          desc.setUseSsl(true)
+          desc.setSmtpAuthUsername("{{ jenkins_email_username }}")
+          desc.setSmtpAuthPassword("{{ jenkins_email_password }}")
+          desc.setReplyToAddress("jenkins@example.com")
+          desc.setPresendScript("")
+          desc.setPostsendScript("")
+          desc.setEmergencyReroute("")
+          desc.setDefaultRecipients("")
+          desc.setDefaultSubject("$DEFAULT_SUBJECT")
+          desc.setDefaultContent("$DEFAULT_CONTENT")
+          desc.setMaxAttachmentSize(0)
+          desc.setExcludedCommitters("")
+          desc.setListId("")
+          desc.setPrecedenceBulk("")
+          desc.setClasspath("")
+          desc.setDebugMode(false)
+          desc.setCharset("UTF-8")
+          
+          instance.save()
+        url_username: "{{ jenkins_admin_user }}"
+        url_password: "{{ jenkins_admin_password }}"
+        url: "http://{{ ansible_default_ipv4.address }}:{{ jenkins_port }}"
+      when: jenkins_email_enabled
+
+    - name: Create Jenkins credentials
+      jenkins_credential:
+        name: "docker-registry-credentials"
+        type: username_password
+        username: "{{ container_registry_username }}"
+        password: "{{ container_registry_password }}"
+        description: "Docker Registry Credentials"
+        url_username: "{{ jenkins_admin_user }}"
+        url_password: "{{ jenkins_admin_password }}"
+        url: "http://{{ ansible_default_ipv4.address }}:{{ jenkins_port }}"
+
+    - name: Create SSH credentials for deployment
+      jenkins_credential:
+        name: "deployment-ssh-key"
+        type: ssh_username_private_key
+        username: "{{ ansible_user }}"
+        private_key: "{{ lookup('file', '~/.ssh/id_rsa') }}"
+        description: "SSH Key for Application Deployment"
+        url_username: "{{ jenkins_admin_user }}"
+        url_password: "{{ jenkins_admin_password }}"
+        url: "http://{{ ansible_default_ipv4.address }}:{{ jenkins_port }}"
+
+    - name: Create Jenkins pipeline job
+      jenkins_job:
+        config: "{{ lookup('template', '../templates/jenkins-pipeline-job.xml.j2') }}"
+        name: "{{ app_name }}-pipeline"
+        password: "{{ jenkins_admin_password }}"
+        url: "http://{{ ansible_default_ipv4.address }}:{{ jenkins_port }}"
+        user: "{{ jenkins_admin_user }}"
+
+    - name: Configure Jenkins backup
+      cron:
+        name: "Jenkins Backup"
+        hour: "1"
+        minute: "0"
+        job: "tar -czf {{ jenkins_backup_path }}/jenkins-backup-$(date +%Y%m%d).tar.gz {{ jenkins_home }}"
+        user: root
+      when: jenkins_backup_enabled
+
+    - name: Create backup directory
+      file:
+        path: "{{ jenkins_backup_path }}"
+        state: directory
+        mode: '0755'
+        owner: jenkins
+        group: jenkins
+      when: jenkins_backup_enabled
+
+    - name: Display Jenkins setup completion
+      debug:
+        msg: |
+          Jenkins CI/CD setup completed successfully!
+          
+          Jenkins URL: http://{{ ansible_default_ipv4.address }}:{{ jenkins_port }}
+          Admin User: {{ jenkins_admin_user }}
+          Admin Password: {{ jenkins_admin_password }}
+          
+          Pipeline Job: {{ app_name }}-pipeline
+          
+          Next steps:
+          1. Access Jenkins web interface
+          2. Configure your Git repository
+          3. Set up webhooks for automatic builds
+          4. Configure deployment targets
+
+  handlers:
+    - name: Restart Jenkins
+      systemd:
+        name: jenkins
+        state: restarted 

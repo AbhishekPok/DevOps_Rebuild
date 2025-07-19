@@ -1,0 +1,52 @@
+# Application server specific variables
+
+# Application configuration
+app_name: "my-application"
+app_version: "1.0.0"
+app_port: 8080
+app_health_check_path: "/health"
+
+# Container configuration
+container_image_name: "{{ app_name }}"
+container_image_tag: "{{ app_version }}"
+container_registry: "docker.io"
+container_registry_username: "{{ vault_container_registry_username }}"
+container_registry_password: "{{ vault_container_registry_password }}"
+
+# Docker settings
+docker_compose_version: "2.20.0"
+docker_swarm_enabled: no
+docker_network_name: "app-network"
+
+# Application environment
+app_environment: "production"
+app_debug: false
+app_log_level: "info"
+
+# Database configuration
+database_host: "{{ groups['database_servers'][0] | default('localhost') }}"
+database_port: 5432
+database_name: "{{ app_name }}_db"
+database_user: "{{ vault_database_user }}"
+database_password: "{{ vault_database_password }}"
+
+# Redis configuration
+redis_host: "{{ groups['database_servers'][0] | default('localhost') }}"
+redis_port: 6379
+redis_password: "{{ vault_redis_password }}"
+
+# Load balancer configuration
+load_balancer_enabled: yes
+load_balancer_algorithm: "round_robin"
+load_balancer_health_check: yes
+
+# SSL/TLS configuration
+ssl_enabled: yes
+ssl_cert_path: "/etc/ssl/certs/{{ app_name }}.crt"
+ssl_key_path: "/etc/ssl/private/{{ app_name }}.key"
+ssl_ca_path: "/etc/ssl/certs/{{ app_name }}_ca.crt"
+
+# Backup configuration
+app_backup_enabled: yes
+app_backup_schedule: "0 2 * * *"
+app_backup_path: "/var/backups/{{ app_name }}" 
